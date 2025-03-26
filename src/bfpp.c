@@ -1,10 +1,15 @@
 #include "bfpp.h"
 
+void reset_state(State *state)
+{
+    state->dp = 0;
+    internal_memset(state->data, 0, sizeof(state->data));
+}
+
 int eval_program(State *state, const char *program, size_t programsz)
 {
     state->dp = 0;
     state->ip = 0;
-
     while(state->ip < programsz) {
         char inst = program[state->ip];
 
@@ -73,8 +78,7 @@ int eval_program(State *state, const char *program, size_t programsz)
             // Extended instructions
             case '$':
                 {
-                    state->dp = 0;
-                    for(int i = 0; i < 30000; ++i) state->data[i] = 0;
+                    reset_state(state);
                 } break;
             case '?':
                 {
@@ -95,7 +99,7 @@ int eval_program(State *state, const char *program, size_t programsz)
                         return -4;
                     }
                     edp -= 1;
-                    char a[8] = {0};
+                    Byte a[8] = {0};
                     for(int i = 7; i >= 0; i--, edp--) {
                         a[8 - i - 1] = state->data[edp];
                     }
@@ -134,6 +138,27 @@ int eval_program(State *state, const char *program, size_t programsz)
     return 0;
 }
 
+size_t internal_strlen(const char *cstr)
+{
+    size_t size;
+    for(size = 0; cstr[size]; ++size);
+    return size;
+}
+
+void *internal_memset(void *dst, const int value, size_t size)
+{
+    for(size_t i = 0; i < size; ++i)
+        ((char*)dst)[i] = ((const char)value);
+    return dst;
+}
+
+void *internal_memcpy(void *dst, const void *src, size_t size)
+{
+    for(size_t i = 0; i < size; ++i)
+        ((char*)dst)[i] = ((const char *)src)[i];
+    return dst;
+}
+
 #ifndef BFPP_WASM
 #include <stdio.h>
 void platform_logger_write_text(const char *text)
@@ -141,7 +166,7 @@ void platform_logger_write_text(const char *text)
     printf("%s", text);
 }
 
-void platform_logger_write_char(char ch)
+void platform_logger_write_char(Byte ch)
 {
     printf("%c", ch);
 }
@@ -156,3 +181,4 @@ void platform_logger_flush(void)
     putchar('\n');
 }
 #endif
+
