@@ -1,11 +1,10 @@
-# BFPP (Brainfuck++)
-A modified and extended brainfuck interpreter
+# BFPP (Brainf*ck++)
+A modified and extended brainf*ck interpreter
 
 ## Language Design
-Brainfuck is a simple programming language that consist of 8 instructions. Brainfuck++ add
-some more instructions to make the language a bit easier to use and can interact with external
-environment easily. 
-A brainfuck runtime usually consists of 
+Brainf\*ck is a simple programming language that consist of 8 instructions. BFPP add some 
+more instructions to make the language a bit easier to use and can interact with external
+environment easily. A brainf\*ck runtime usually consists of 
 - Data/Tape: An array of bytes usually with length of 30000
 - Data Pointer: A pointer that point into a byte in Data/Tape
 You create a useful program by manipulating this Data/Tape via Data Pointer
@@ -32,7 +31,7 @@ which set to the native functions slot 5.
 ```
 
 
-## Brainfuck++ sets of Instruction
+## BFPP sets of Instruction
 
 | Instruction    | Description                                       | 
 |----------------|---------------------------------------------------|
