@@ -1,7 +1,26 @@
-
+@start
+    50
+@loop
     dup print
     1 sub
     dup 0 eq
     ?end !loop
+@end
+    
 
-if
+; The next program will decide whether you're old or not
+; your age
+    20
+
+; old threshold
+    17
+
+; we will just equal this should be lt or le but since we dont
+; implement that yet so we use eq as placeholder
+    eq
+    ?isyoung
+    !isold
+@isyoung
+    0
+@isold
+    1
