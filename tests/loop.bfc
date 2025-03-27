@@ -1,0 +1,7 @@
+
+    dup print
+    1 sub
+    dup 0 eq
+    ?end !loop
+
+if

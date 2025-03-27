@@ -3,6 +3,8 @@
 
 #include <stddef.h>
 
+#define TAPE_LENGTH 30000
+
 typedef unsigned char  Byte;
 typedef unsigned short Word;
 
@@ -10,7 +12,7 @@ typedef struct State State;
 typedef Byte (*NativeFunc)(State *, Byte[8]);
 typedef struct State {
     NativeFunc natives[256];
-    Byte data[30000];
+    Byte data[TAPE_LENGTH];
     size_t dp;
     size_t ip;
 } State;

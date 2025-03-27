@@ -8,6 +8,13 @@ WASM_LFLAGS := -Wl,--allow-undefined -Wl,--export-all -Wl,--no-entry
 
 all: index.wasm bfpp.exe
 
+test: bfpp.exe ./tests/test.bf
+	bfpp.exe ./tests/loop.bf
+
+./tests/test.bf: ./tests/loop.bfc
+	python ./tools/bfcat.py $^ $@
+
+
 index.wasm: src/bfpp.c src/index.c
 	$(CC) $(CFLAGS) $(WASM_CFLAGS) -DBFPP_WASM -o $@ $^ $(WASM_LFLAGS)
 

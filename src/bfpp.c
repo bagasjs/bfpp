@@ -25,13 +25,31 @@ int eval_program(State *state, const char *program, size_t programsz)
                 platform_logger_flush();
                 break;
             case '>':
+                if((int)state->dp + 1 > TAPE_LENGTH) {
+                    platform_logger_write_text("ERROR: data pointer is already maxed could not increment it anymore");
+                    platform_logger_flush();
+                    return -5;
+                }
                 state->dp += 1;
                 break;
             case '<':
+                if((int)state->dp - 1 < 0) {
+                    platform_logger_write_text("ERROR: data pointer is already zero could not decrement it anymore");
+                    platform_logger_flush();
+                    return -5;
+                }
                 state->dp -= 1;
                 break;
             case '[':
                 {
+                    // Optimization Idea: check if program[ip + 1] == '-' && program[ip + 2] == ']'
+                    // Then we can just set data[dp] = 0
+                    if(state->ip + 2 < programsz && program[state->ip + 1] == '-' && program[state->ip + 2] == ']') {
+                        state->data[state->dp] = 0;
+                        state->ip += 2; // skip over -];
+                        break;
+                    }
+
                     if(state->data[state->dp] == 0) {
                         size_t i = state->ip;
                         size_t stack = 0;
@@ -78,12 +96,12 @@ int eval_program(State *state, const char *program, size_t programsz)
             // Extended instructions
             case '$':
                 {
-                    reset_state(state);
+                    state->dp = 0;
                 } break;
             case '?':
                 {
                     platform_logger_write_text("[dp=");
-                    platform_logger_write_int(state->dp);
+                    platform_logger_write_int((int)state->dp);
                     platform_logger_write_text("] ");
                     platform_logger_write_int(state->data[state->dp]);
                     platform_logger_flush();

@@ -10,6 +10,28 @@ A brainfuck runtime usually consists of
 - Data Pointer: A pointer that point into a byte in Data/Tape
 You create a useful program by manipulating this Data/Tape via Data Pointer
 
+Since working with the tape only is a bit limiting. BFPP introduce the concept of native function.
+If you've ever written an x86_64 assembly, it's similar to the concept of system call in there.
+BFPP provide 256 slots for native functions that can be provided by external system. You can call
+each function by using "!" instruction. The instruction will evaluate the current byte pointed by
+the data pointer then it will call the native functions in that slot. You can provide up to 8 arguments 
+to the native function by setting up the previous 8 tape slot. Here's a simple example
+where we want to call a function with the following signature `void init_window(byte width, byte height)`
+which set to the native functions slot 5.
+```bfpp
+; set tape[0] as height with value of 200
+>++++++++++[<++++++++++++++++++++>-]
+; set tape[1] as width with value of 200
+>
+>++++++++++[<++++++++++++++++++++>-]
+; set tape[2] as 5 which is the slot for native function init_window
+>
++++++
+; then call the function
+!
+```
+
+
 ## Brainfuck++ sets of Instruction
 |----------------|---------------------------------------------------|
 | Instruction    | Description                                       | 

@@ -1,0 +1,10 @@
+0 native
+@jumpables
+    255 
+    255 
+    add
+    sub
+    eq 
+    print
+    $jumpable # Jump to $jumpable if it's equal
+    jmpif

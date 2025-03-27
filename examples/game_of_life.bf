@@ -1,8 +1,11 @@
-;; Clear the tape and reset the tape pointer
+;; The first 10*10 grid are the state of game of life
+
+;; Reset the tape pointer to 0
 $
 
 ;; clear background
 [-]!
+
 
 ;; drawing a cell
 ;; void draw_cell(int x, int y, unsigned char r, unsigned char g, unsigned char b);
