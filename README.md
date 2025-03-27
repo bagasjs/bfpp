@@ -33,7 +33,7 @@ which set to the native functions slot 5.
 
 
 ## Brainfuck++ sets of Instruction
-|----------------|---------------------------------------------------|
+
 | Instruction    | Description                                       | 
 |----------------|---------------------------------------------------|
 | +              | Increment the byte at the data pointer by 1       |
@@ -47,5 +47,4 @@ which set to the native functions slot 5.
 | !              | Native function call based on provided call table |
 | ?              | Dump the value of byte at data pointer (debugging)|
 | $              | Reset data to zeros and dp to zero                |
-|----------------|---------------------------------------------------|
 
