@@ -1,10 +1,51 @@
-0 native
-@jumpables
-    255 
-    255 
-    add
-    sub
-    eq 
-    print
-    $jumpable # Jump to $jumpable if it's equal
-    jmpif
+;; macros
+def  GAME_ROWS 15 end
+def  GAME_COLS 15 end
+data CELLS 225 end
+
+;; update backbuffer
+while dup GAME_ROWS lt do
+    while dup GAME_COLS lt do
+        ;; [ ..., i, j ]
+        ;; Get current state
+        over over
+
+
+        ;; Count all the neighbours
+
+        ;; At this point the top of the stack must be
+        ;; [ ..., current_state, nbors_count ]
+        ;; nbors_count < 2 and current_state == True
+        dup 2 lt over 1 eq and if 
+            ;; set current cell as dead
+            CELLS load
+        end
+
+        ;; (nbors_count == 2 or nbors_count == 3) and current_state = True
+        dup 2 eq over 3 eq or over 1 eq and if
+            ;; set current cell as alive
+        end
+
+        ;; (nbors_count > 3 and current_state == True)
+        dup 3 gt over 1 eq and if
+            ;; set current cell as dead
+        end
+
+        ;; (nbors_count == 3 and current_state == False)
+        dup 3 eq over 0 eq if
+            ;; set current cell as alive
+        end
+    end
+end
+
+;; draw
+while dup GAME_ROWS lt do
+    while dup GAME_COLS lt do
+        ;; get the cell
+        if 
+            
+        else
+            
+        end
+    end
+end

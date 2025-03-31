@@ -36,7 +36,20 @@ def compile_to_brainfuck(source: str, debug_sym = False) -> str:
                 sp += 1
                 i += 1
 
+            case "over":
+                if sp < 2:
+                    raise IndexError("Not enough elements for `over`")
+                # [ ... X, FOO, Y, Z ]
+                result.append(
+                        "[-]<<" # Set Y to 0 then move to X
+                        "[->>+>+<<<]" # Copy X to Y and Z
+                        ">>>[-<<<+>>>]" # Move Z to X
+                        )
+                sp += 1
+                i += 1
+
             case "swap":
+                # [ ... X, Y ] -> [ ... Y, X ]
                 if sp < 2:
                     raise IndexError("Not enough elements for `swap`")
                 result.append(
@@ -59,8 +72,41 @@ def compile_to_brainfuck(source: str, debug_sym = False) -> str:
                 sp -= 1
                 i += 1
 
+            case "and":
+                # [ ..., Y, X, Z ] => Y AND X
+                if sp < 2:
+                    raise IndexError("Not enough elements for `and`")
+                sp -= 1
+                i += 1
+
+            case "or":
+                # TODO: This wont work for `0 0 or`
+                # [ ..., Y, X ] => Y OR X
+                if sp < 2:
+                    raise IndexError("Not enough elements for `and`")
+                result.append(
+                        "[-]<<[->>+<<]>>" # Move Y to Z
+                        "[[-]<<+>>]<" # If Z != 0, Increment Y and set Z to 0
+                        "[[-]<+>]" # If X != 0, Increment Y and set X to 0
+                        )
+                sp -= 1
+                i += 1
+
+            case "neq":
+                # TODO: This wont work for `0 0 neq`
+                # [ ..., Y, X ] = Y != X
+                if sp < 2:
+                    raise IndexError("Not enough elements for `neq`")
+                result.append(
+                        "[-]<" # move to X 
+                        "[-<->]<" # subtract Y from X, X destroyed here
+                        "[[-]+>]" # Check for Y if it's not 0 then set it to 1 and then move to X
+                        )
+                i += 1
+                sp -= 1
+
             case "eq":
-                # Y == X
+                # [ ..., Y, X ] Y == X
                 if sp < 2:
                     raise IndexError("Not enough elements for `eq`")
                 result.append(
@@ -72,10 +118,49 @@ def compile_to_brainfuck(source: str, debug_sym = False) -> str:
                 sp -= 1
                 i += 1
 
-            case "print":
-                result.append("<? ; print")
+            case "gt":
+                # [ ..., Y, X ] Y > X
+                # [ ..., 21, 19 ]
+                if sp < 2:
+                    raise IndexError("Not enough elements for `gt`")
+                result.append(
+                        "[-]<" # Move to X
+                        "[" # While X != 0
+                            "-" # decr X
+                            "<" # Move To Y
+                            "[" # While X != 0
+                                "-" # Subtract X
+                                ">>" # Move to Z
+                            "]"
+                        "]"
+                        )
                 sp -= 1
                 i += 1
+
+            case "lt":
+                if sp < 2:
+                    raise IndexError("Not enough elements for `lt`")
+                i += 1
+                sp -= 1
+
+            case "dbgprint":
+                result.append("<? ; dbgprint")
+                sp -= 1
+                i += 1
+
+            case "while":
+                pass
+
+            case "end":
+                pass
+
+            case "do":
+                pass
+
+            case "if":
+                pass
+            case "else":
+                pass
 
             case _:
                 raise ValueError(f"Unknown instruction `{inst}`")

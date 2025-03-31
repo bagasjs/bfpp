@@ -9,9 +9,9 @@ WASM_LFLAGS := -Wl,--allow-undefined -Wl,--export-all -Wl,--no-entry
 all: index.wasm bfpp.exe
 
 test: bfpp.exe ./tests/test.bf
-	bfpp.exe ./tests/loop.bf
+	bfpp.exe ./tests/test.bf
 
-./tests/test.bf: ./tests/loop.bfc
+./tests/test.bf: ./tests/test.bfc
 	python ./tools/bfcat.py $^ $@
 
 

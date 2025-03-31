@@ -1,0 +1,5 @@
+; [ ..., Y, X ] Y > X
+; [ ..., 21, 19 ]
+; 19 21 gt dbgprint
+; [ ..., 0, 1 ] Y AND X
+0 0 neq dbgprint
