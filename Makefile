@@ -6,7 +6,7 @@ WASM_LFLAGS := -Wl,--allow-undefined -Wl,--export-all -Wl,--no-entry
 
 # CFLAGS += -g -fsanitize=address
 
-all: index.wasm bfpp.exe
+all: index.wasm build/bfpp.exe
 
 test: bfpp.exe ./tests/test.bf
 	bfpp.exe ./tests/test.bf
@@ -18,5 +18,5 @@ test: bfpp.exe ./tests/test.bf
 index.wasm: src/bfpp.c src/index.c
 	$(CC) $(CFLAGS) $(WASM_CFLAGS) -DBFPP_WASM -o $@ $^ $(WASM_LFLAGS)
 
-bfpp.exe: src/bfpp.c ./src/main.c
+build/bfpp.exe: src/bfpp.c ./src/main.c
 	$(CC) $(CFLAGS) -o $@ $^ $(LFLAGS)

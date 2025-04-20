@@ -72,35 +72,20 @@ def compile_to_brainfuck(source: str, debug_sym = False) -> str:
                 sp -= 1
                 i += 1
 
-            case "and":
-                # [ ..., Y, X, Z ] => Y AND X
-                if sp < 2:
-                    raise IndexError("Not enough elements for `and`")
-                sp -= 1
-                i += 1
-
-            case "or":
-                # TODO: This wont work for `0 0 or`
-                # [ ..., Y, X ] => Y OR X
-                if sp < 2:
-                    raise IndexError("Not enough elements for `and`")
-                result.append(
-                        "[-]<<[->>+<<]>>" # Move Y to Z
-                        "[[-]<<+>>]<" # If Z != 0, Increment Y and set Z to 0
-                        "[[-]<+>]" # If X != 0, Increment Y and set X to 0
-                        )
+            case "dbgprint":
+                result.append("<? ; dbgprint")
                 sp -= 1
                 i += 1
 
             case "neq":
-                # TODO: This wont work for `0 0 neq`
                 # [ ..., Y, X ] = Y != X
                 if sp < 2:
                     raise IndexError("Not enough elements for `neq`")
                 result.append(
                         "[-]<" # move to X 
                         "[-<->]<" # subtract Y from X, X destroyed here
-                        "[[-]+>]" # Check for Y if it's not 0 then set it to 1 and then move to X
+                        "[[-]>+<][-]" # Check for Y if it's not 0 then set it to 1 and then move to X
+                        ">[-<+>]" # Check for Y if it's not 0 then set it to 1 and then move to X
                         )
                 i += 1
                 sp -= 1
@@ -119,20 +104,16 @@ def compile_to_brainfuck(source: str, debug_sym = False) -> str:
                 i += 1
 
             case "gt":
-                # [ ..., Y, X ] Y > X
-                # [ ..., 21, 19 ]
+                # [ ..., Y, X, Z, W, A ] Y > X
+                # [ ..., 21, 19, 0, 0, 1 ]
                 if sp < 2:
                     raise IndexError("Not enough elements for `gt`")
                 result.append(
-                        "[-]<" # Move to X
-                        "[" # While X != 0
-                            "-" # decr X
-                            "<" # Move To Y
-                            "[" # While X != 0
-                                "-" # Subtract X
-                                ">>" # Move to Z
-                            "]"
-                        "]"
+                        "[-]>[-]>+<<<" # Clear Z and W then move to X
+                        "[->+<]<[->+<]>" # Move X to Z and Move Y to X
+                        "[->-[>]<<]>>>[-<]<<" # Now we have if X > 0 then GT if Z > 0 then LT. Also we always in X
+                        "[-<+>]" # We need to normalize the number if Y > 0 then set Y into 1
+                        "<[[-]>+<][-]>[-<+>]"
                         )
                 sp -= 1
                 i += 1
@@ -140,11 +121,40 @@ def compile_to_brainfuck(source: str, debug_sym = False) -> str:
             case "lt":
                 if sp < 2:
                     raise IndexError("Not enough elements for `lt`")
+                # [ ..., Y, X, Z, W, A ] Y > X
+                # [ ..., 21, 19, 0, 0, 1 ]
+                if sp < 2:
+                    raise IndexError("Not enough elements for `gt`")
+                result.append(
+                        "[-]>[-]>+<<<" # Clear Z and W then move to X
+                        "[->+<]<[->+<]>" # Move X to Z and Move Y to X
+                        "[->-[>]<<]>>>[-<]<" # Now we have if X > 0 then GT if Z > 0 then LT. Also we always in X
+                        "[-<<+>>]<[-]" # We need to normalize the number if Y > 0 then set Y into 1
+                        "<[[-]>+<][-]>[-<+>]"
+                        )
                 i += 1
                 sp -= 1
 
-            case "dbgprint":
-                result.append("<? ; dbgprint")
+
+            # Unfinished
+
+            case "and":
+                # [ ..., Y, X, Z ] => Y AND X
+                if sp < 2:
+                    raise IndexError("Not enough elements for `and`")
+                sp -= 1
+                i += 1
+
+            case "or":
+                # TODO: This wont work for `0 0 or`
+                # [ ..., Y, X ] => Y OR X
+                if sp < 2:
+                    raise IndexError("Not enough elements for `and`")
+                result.append(
+                        "[-]<<[->>+<<]>>" # Move Y to Z
+                        "[[-]<<+>>]<" # If Z != 0, Increment Y and set Z to 0
+                        "[[-]<+>]" # If X != 0, Increment Y and set X to 0
+                        )
                 sp -= 1
                 i += 1
 
