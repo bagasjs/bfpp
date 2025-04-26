@@ -1,0 +1,4 @@
+1 1 or dbgprint
+1 0 or dbgprint
+0 1 or dbgprint
+0 0 or dbgprint

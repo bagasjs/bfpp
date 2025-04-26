@@ -1,6 +1,7 @@
 import os
 import subprocess
 import json
+import optparse
 
 SILENT = True
 
@@ -14,6 +15,11 @@ def cmd(command: list[str], show_stdout = False, show_stderr = True) -> bool:
     return result.returncode == 0
 
 def main():
+    parser = optparse.OptionParser()
+    parser = optparse.OptionParser()
+    parser.add_option("--build-expectation", dest="build_expectation", default=False, help="Don't display warning messages", action="store_true")
+    options, _ = parser.parse_args()
+
     build_dir = "build"
     tests_dir = "tests"
     test_files = [
@@ -27,37 +33,43 @@ def main():
         "07_test_neq.bfc",
         "08_test_gt.bfc",
         "09_test_lt.bfc",
+        "10_test_and.bfc",
+        "11_test_or.bfc",
     ]
-
-    if not os.path.isfile(os.path.join("expected.json")):
-        print("Building test expectation")
-        expected = {}
-        for test_file in test_files:
-            output_path = os.path.join(build_dir, os.path.splitext(test_file)[0])
-            if not cmd(["python", os.path.join("tools", "bfcat.py"), os.path.join(tests_dir, test_file), output_path]):
-                print("Failed to compile: ", test_file)
-                exit(-1)
-            res = subprocess.run([os.path.join(build_dir, "bfpp.exe"), output_path], stdout=subprocess.PIPE)
-            if res.returncode != 0:
-                print("Failed to run: ", test_file)
-                print(res.stdout.decode())
-                exit(-1)
-            expected[test_file] = res.stdout.decode()
-        with open(os.path.join(tests_dir, "expected.json"), "w") as file:
-            file.write(json.dumps(expected))
 
     with open(os.path.join(tests_dir, "expected.json"), "r") as file:
         expected = json.loads(file.read())
 
     for test_file in test_files:
-        output_path = os.path.join(build_dir, os.path.splitext(test_file)[0])
+        output_path = os.path.join(build_dir, os.path.splitext(test_file)[0]) + ".bf"
         cmd(["python", os.path.join("tools", "bfcat.py"), os.path.join(tests_dir, test_file), output_path])
         res = subprocess.run([os.path.join(build_dir, "bfpp.exe"), output_path], stdout=subprocess.PIPE)
+        stdout = res.stdout.decode().strip()
+        act_lines = stdout.splitlines()
+        exp_lines = expected[test_file]
 
-        if res.stdout != expected[test_file]:
+        success = True
+        if len(act_lines) != len(exp_lines):
+            print(f"+ {output_path} failed")
+            print(f"++ Actual: {len(act_lines)}")
+            print(stdout)
+            print(f"++ Expected: {len(exp_lines)}")
+            print("\n".join(exp_lines))
+            continue
+
+        for i in range(len(act_lines)):
+            if act_lines[i] != exp_lines[i]:
+                success = False
+                break
+
+        if success:
             print(f"+ {output_path} success")
         else:
             print(f"+ {output_path} failed")
+            print(f"++ Actual: {len(act_lines)}")
+            print(stdout)
+            print(f"++ Expected: {len(exp_lines)}")
+            print("\n".join(exp_lines))
 
 
 

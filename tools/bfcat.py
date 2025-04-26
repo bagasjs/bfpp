@@ -136,27 +136,33 @@ def compile_to_brainfuck(source: str, debug_sym = False) -> str:
                 sp -= 1
 
 
-            # Unfinished
-
-            case "and":
-                # [ ..., Y, X, Z ] => Y AND X
-                if sp < 2:
-                    raise IndexError("Not enough elements for `and`")
-                sp -= 1
-                i += 1
-
             case "or":
                 # TODO: This wont work for `0 0 or`
                 # [ ..., Y, X ] => Y OR X
                 if sp < 2:
                     raise IndexError("Not enough elements for `and`")
                 result.append(
-                        "[-]<<[->>+<<]>>" # Move Y to Z
-                        "[[-]<<+>>]<" # If Z != 0, Increment Y and set Z to 0
-                        "[[-]<+>]" # If X != 0, Increment Y and set X to 0
+                        "[-]<" # Move to X,
+                        "[-<+>]<" # Add X to Y
+                        "[[-]>+<]>" # Set Y to 0 and X to 1 if Y > 0 
+                        "[-<+>]"
                         )
                 sp -= 1
                 i += 1
+
+            case "and":
+                # [ ..., Y, X, Z ] => Y AND X
+                if sp < 2:
+                    raise IndexError("Not enough elements for `and`")
+                result.append(
+                        "[-]<<" # Move to X
+                        "[[-]>[[-]>+<]<]" # If X != 0 set X to 0 if Y != 0 set Y to 0 and set Z = 1
+                        ">>[-<<+>>]<" # Move the value of Z to Y
+                        )
+                sp -= 1
+                i += 1
+
+            # Unfinished
 
             case "while":
                 pass
