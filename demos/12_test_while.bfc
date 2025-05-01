@@ -1,5 +1,5 @@
-4
-while dup 1 gt do
+3
+while dup 0  gt do
     1 sub
     dup dbgprint
 end

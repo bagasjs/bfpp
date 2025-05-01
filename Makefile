@@ -6,14 +6,10 @@ WASM_LFLAGS := -Wl,--allow-undefined -Wl,--export-all -Wl,--no-entry
 
 # CFLAGS += -g -fsanitize=address
 
-all: index.wasm build/bfpp.exe
+all: index.wasm build/bfpp.exe demos/game_of_life.bf
 
-test: bfpp.exe ./tests/test.bf
-	bfpp.exe ./tests/test.bf
-
-./tests/test.bf: ./tests/test.bfc
-	python ./tools/bfcat.py $^ $@
-
+demos/game_of_life.bf: ./demos/game_of_life.bfc
+	python ./bfcat2.py com ./demos/game_of_life.bfc demos/game_of_life.bf
 
 index.wasm: src/bfpp.c src/index.c
 	$(CC) $(CFLAGS) $(WASM_CFLAGS) -DBFPP_WASM -o $@ $^ $(WASM_LFLAGS)

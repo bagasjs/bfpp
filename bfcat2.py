@@ -355,7 +355,10 @@ class Codegen(object):
                 self.sp -= 1
 
             case "gt":
-                # NOTE(bagasjs): This is has undefined behaviour on "X Y gt" whether X or Y or both is 0
+                # NOTE(bagasjs): Y and X must not be 255. This is due to QUICK HACK
+                #                If we disable QUICK HACK it will resulting on
+                #                Weird behaviour if X or Y or both of them is 0
+                # TODO(bagasjs): Find a way to not depends on the QUICK HACK
                 # [ ..., Y, X, Z, W, A ] Y > X
                 # [ ..., 21, 19, 0, 0, 1 ]
                 if self.sp < 2:
@@ -363,6 +366,7 @@ class Codegen(object):
                 self.result.append(
                         "[-]>[-]>+<<<" # Clear Z and W and set A to 1 then move to X. This part ends in X
                         "[->+<]<[->+<]>" # Move X to Z and Move Y to X. We end in X
+                        "+>+<" # QUICK HACK: Add 1 for X and Z
                         # If X > 0 decrease X then decrease Z.
                         # Looping move until 0 (which is always W) then move back to X
                         "[->-[>]<<]>>>[-<]<<" # Now we have if X > 0 then GT if Z > 0 then LT. Also we always in X
@@ -372,7 +376,10 @@ class Codegen(object):
                 self.sp -= 1
 
             case "lt":
-                # NOTE(bagasjs): This is has undefined behaviour on "X Y gt" whether X or Y or both is 0
+                # NOTE(bagasjs): Y and X must not be 255. This is due to QUICK HACK
+                #                If we disable QUICK HACK it will resulting on
+                #                Weird behaviour if X or Y or both of them is 0
+                # TODO(bagasjs): Find a way to not depends on the QUICK HACK
                 if self.sp < 2:
                     raise IndexError("Not enough elements for `lt`")
                 # [ ..., Y, X, Z, W, A ] Y > X
@@ -382,6 +389,7 @@ class Codegen(object):
                 self.result.append(
                         "[-]>[-]>+<<<" # Clear Z and W then move to X
                         "[->+<]<[->+<]>" # Move X to Z and Move Y to X
+                        "+>+<" # QUICK HACK: Add 1 for X and Z
                         "[->-[>]<<]>>>[-<]<" # Now we have if X > 0 then GT if Z > 0 then LT. Also we always in X
                         "[-<<+>>]<[-]" # We need to normalize the number if Y > 0 then set Y into 1
                         "<[[-]>+<][-]>[-<+>]"

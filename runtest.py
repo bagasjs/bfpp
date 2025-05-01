@@ -21,7 +21,7 @@ def main():
     options, _ = parser.parse_args()
 
     build_dir = "build"
-    tests_dir = "tests"
+    tests_dir = "demos"
     test_files = [
         "00_test_dbgprint.bfc",
         "01_test_dup.bfc",
@@ -38,7 +38,7 @@ def main():
         "12_test_while.bfc",
     ]
 
-    with open(os.path.join(tests_dir, "test-expectation.json"), "r") as file:
+    with open(os.path.join(tests_dir, "runtest-expectation.json"), "r") as file:
         expected = json.loads(file.read())
 
     for test_file in test_files:
