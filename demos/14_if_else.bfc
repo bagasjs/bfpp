@@ -1,9 +1,0 @@
-1
-if 1 eq do
-   89 print 
-   69 print 
-   83 print
-else
-   78 print 
-   79 print 
-end

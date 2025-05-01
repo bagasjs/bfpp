@@ -36,6 +36,8 @@ def main():
         "10_test_and.bfc",
         "11_test_or.bfc",
         "12_test_while.bfc",
+        "13_test_if.bfc",
+        "14_test_if_else.bfc",
     ]
 
     with open(os.path.join(tests_dir, "runtest-expectation.json"), "r") as file:
@@ -45,7 +47,7 @@ def main():
         output_path = os.path.join(build_dir, os.path.splitext(test_file)[0]) + ".bf"
         # bfcat = os.path.join("tools", "bfcat.py")
         bfcat = "bfcat2.py"
-        cmd(["python", bfcat, "com", os.path.join(tests_dir, test_file), output_path], show_stdout=True)
+        cmd(["python", bfcat, "com", os.path.join(tests_dir, test_file), output_path], show_stdout=True, show_stderr=True)
         res = subprocess.run([os.path.join(build_dir, "bfpp.exe"), output_path], stdout=subprocess.PIPE)
         stdout = res.stdout.decode().strip()
         act_lines = stdout.splitlines()

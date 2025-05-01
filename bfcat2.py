@@ -28,6 +28,7 @@ TOK_INT  = iota()
 TOK_DUP  = iota()
 TOP_OVER = iota()
 TOK_SWAP = iota()
+TOK_PRINT = iota()
 TOK_ADD  = iota()
 TOK_SUB  = iota()
 TOK_EQ   = iota()
@@ -62,6 +63,7 @@ keyword_map = {
     "else": TOK_ELSE,
     "do": TOK_DO,
     "end": TOK_END,
+    "print": TOK_PRINT,
     "dbgprint": TOK_DBGPRINT,
 
     "def": TOK_DEF,
@@ -125,10 +127,12 @@ class Intrinsic(Inst):
 class While(Inst):
     cond: List[Inst]
     body: List[Inst]
+    line_number: int
 
-    def __init__(self, cond: List[Inst], body: List[Inst]):
+    def __init__(self, cond: List[Inst], body: List[Inst], line_number: int):
         self.cond = cond
         self.body = body
+        self.line_number = line_number
 
     def __repr__(self):
         return f"While(cond={self.cond}, body={self.body})"
@@ -137,11 +141,13 @@ class Branch(Inst):
     cond: List[Inst]
     if_body: List[Inst]
     else_body: List[Inst]
+    line_number: int
     
-    def __init__(self, cond: List[Inst], if_body: List[Inst], else_body: List[Inst]):
+    def __init__(self, cond: List[Inst], if_body: List[Inst], else_body: List[Inst], line_number: int):
         self.cond = cond
         self.if_body = if_body
         self.else_body = else_body
+        self.line_number = line_number
 
     def __repr__(self):
         return f"Branch(cond={self.cond}, if={self.if_body}, else={self.else_body})"
@@ -238,12 +244,13 @@ class Parser(object):
         if self.tokens[self.i].kind == TOK_ELSE:
             self.blocks.append(else_body)
             else_tok = self.tokens[self.i]
+            self.i += 1
             while self.tokens[self.i].kind != TOK_END:
                 if self.i + 1 >= len(self.tokens) and self.tokens[self.i].kind != TOK_END:
                     error(f"invalid eof expecting 'end' for 'else' in line {else_tok.line_number}")
                 self.parse_once()
             self.blocks.pop()
-        self.blocks[-1].append(Branch(condition, if_body, else_body))
+        self.blocks[-1].append(Branch(condition, if_body, else_body, if_tok.line_number))
         self.i += 1
 
     def parse_while(self):
@@ -268,7 +275,7 @@ class Parser(object):
             self.parse_once()
         body = self.blocks[-1]
         self.blocks.pop()
-        self.blocks[-1].append(While(condition, body))
+        self.blocks[-1].append(While(condition, body, while_tok.line_number))
         self.i += 1
 
     def parse(self):
@@ -328,6 +335,10 @@ class Codegen(object):
 
             case "dbgprint":
                 self.result.append("<? ; dbgprint")
+                self.sp -= 1
+
+            case "print":
+                self.result.append("<. ; print")
                 self.sp -= 1
 
             case "neq":
@@ -423,11 +434,13 @@ class Codegen(object):
 
     def emit_while(self, while_: Inst):
         assert isinstance(while_, While)
+        start_sp = self.sp;
         self.result.append(";; Preamble condition")
         for inst in while_.cond:
             self.emit_once(inst)
         self.result.append(";; Start of the loop")
         self.result.append("<[")
+        self.sp -= 1
         self.result.append(";; Loop Body")
         for inst in while_.body:
             self.emit_once(inst)
@@ -435,6 +448,34 @@ class Codegen(object):
         for inst in while_.cond:
             self.emit_once(inst)
         self.result.append("<]")
+        self.sp -= 1
+        if self.sp != start_sp:
+            error(f"While loop at line {while_.line_number} starts with SP={start_sp} but ends with SP={self.sp}")
+
+    def emit_branch(self, branch: Inst):
+        assert isinstance(branch, Branch)
+        start_sp = self.sp
+        self.result.append(";; Check for condition")
+        for inst in branch.cond:
+            self.emit_once(inst)
+        # [ ... CONDITION_RESULT, A ]
+        self.result.append(";; IF condition")
+        self.result.append("[-]+<[") # If CONDITION_RESULT 
+        self.result.append("[-]>[-]>")
+        for inst in branch.if_body:
+            self.emit_once(inst)
+        self.result.append("<<]") # End of If
+        if len(branch.else_body) > 0:
+            self.result.append(";; ELSE")
+            self.result.append(">[[-]>") # Start of else
+            for inst in branch.else_body:
+                self.emit_once(inst)
+            self.result.append("<]<") # End of else
+        self.result.append(";; ENDIF")
+        # TODO(bagasjs): we need to implement this for safety measure
+        # if self.sp != start_sp:
+        #     error(f"If statement at line {branch.line_number} starts with SP={start_sp} but ends with SP={self.sp}")
+
 
     def emit_once(self, inst: Inst):
         if isinstance(inst, Integer):
@@ -445,12 +486,11 @@ class Codegen(object):
         elif isinstance(inst, While):
             self.emit_while(inst)
         elif isinstance(inst, Branch):
-            pass
+            self.emit_branch(inst)
 
     def emit_brainfuck(self):
         for inst in self.program.body:
             self.emit_once(inst)
-
         return "\n".join(self.result)
 
 def compile_to_brainfuck(source: str, debug_sym: bool = False) -> str:

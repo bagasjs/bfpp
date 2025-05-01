@@ -1,10 +1,9 @@
-if 1 1 eq do
+0
+if 1 eq do
    89 print 
    69 print 
    83 print
-end
-
-if 0 1 eq do
+else
    78 print 
    79 print 
 end
