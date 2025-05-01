@@ -1,9 +1,1 @@
-def MAX_VALUE 10 end
-
-0
-while dup MAX_VALUE lt do
-    if dup 5 eq do
-        dup dbgprint
-    end
-    dup dbgprint
-end
+2 1 gt dbgprint

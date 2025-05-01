@@ -1,3 +1,7 @@
 102 100 gt dbgprint
 100 102 gt dbgprint
 100 100 gt dbgprint
+1 1 gt dbgprint
+1 0 gt dbgprint
+0 1 gt dbgprint
+0 0 gt dbgprint

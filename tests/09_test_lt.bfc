@@ -1,3 +1,7 @@
 100 102 lt dbgprint
 102 100 lt dbgprint
 100 100 lt dbgprint
+1 1 lt dbgprint
+1 0 lt dbgprint
+0 1 lt dbgprint
+0 0 lt dbgprint

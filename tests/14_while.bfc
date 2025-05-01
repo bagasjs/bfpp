@@ -1,5 +1,0 @@
-3
-while dup 0 > end
-    dup dbgprint
-    1 - 
-end

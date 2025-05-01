@@ -174,7 +174,6 @@ class Parser(object):
         elif self.tokens[self.i].kind == TOK_IF:
             self.parse_if()
         elif self.tokens[self.i].kind in [ TOK_DO, TOK_END, TOK_ELSE ]:
-            print(self.blocks)
             error(f"invalid token '{self.tokens[self.i].text}' at line {self.tokens[self.i].line_number}. It has no context")
         elif self.tokens[self.i].kind == TOK_INT:
             self.blocks[-1].append(Integer(int(self.tokens[self.i].text)))
@@ -186,6 +185,13 @@ class Parser(object):
             error(f"invalid token '{self.tokens[self.i].text}' at line {self.tokens[self.i].line_number}")
 
     def parse_macro(self):
+        # TODO(bagasjs): Make sure we can't add a while or if else block in macro
+        #                because it can be expanded into illegal instruction at 
+        #                something like i.e. while A_MACRO do end
+        #                if A_MACRO => def A_MACRO while 1 1 eq do end end
+        #                this wil be expanded into while while 1 1 eq do end do end
+        #                Which for now will be illegal until further research done 
+        #                (Although I don't want to research about this)
         macro_tok = self.tokens[self.i]
         self.i += 1
         name = self.tokens[self.i]
@@ -272,31 +278,198 @@ class Parser(object):
 class Codegen(object):
     def __init__(self, program: Program):
         self.program = program
+        self.result = []
+        self.sp = 0
 
-    def generate_brainfuck(self):
-        return ""
+    def emit_intrinsic(self, inst: Inst):
+        assert isinstance(inst, Intrinsic)
+        match inst.kind:
+            case "dup":
+                if self.sp < 1:
+                    raise IndexError("Not enough elements for `dup`")
+                self.result.append(
+                        "[-]<" # Set Y to 0 then move to X
+                        "[->+>+<<]" # Copy X to Y and Z
+                        ">>[-<<+>>]" # Move Z to X
+                        )
+                self.sp += 1
+
+            case "over":
+                if self.sp < 2:
+                    raise IndexError("Not enough elements for `over`")
+                # [ ... X, FOO, Y, Z ]
+                self.result.append(
+                        "[-]<<" # Set Y to 0 then move to X
+                        "[->>+>+<<<]" # Copy X to Y and Z
+                        ">>>[-<<<+>>>]" # Move Z to X
+                        )
+                self.sp += 1
+
+            case "swap":
+                # [ ... X, Y ] -> [ ... Y, X ]
+                if self.sp < 2:
+                    raise IndexError("Not enough elements for `swap`")
+                self.result.append(
+                        "<[->+<]"
+                        "<[->+<]"
+                        ">>[-<<+>>]")
+
+            case "add":
+                if self.sp < 2:
+                    raise IndexError("Not enough elements for `add`")
+                self.result.append("<[-<+>]")
+                self.sp -= 1
+
+            case "sub":
+                if self.sp < 2:
+                    raise IndexError("Not enough elements for `sub`")
+                self.result.append("<[-<->]")
+                self.sp -= 1
+
+            case "dbgprint":
+                self.result.append("<? ; dbgprint")
+                self.sp -= 1
+
+            case "neq":
+                # [ ..., Y, X ] = Y != X
+                if self.sp < 2:
+                    raise IndexError("Not enough elements for `neq`")
+                self.result.append(
+                        "[-]<" # move to X 
+                        "[-<->]<" # subtract Y from X, X destroyed here
+                        "[[-]>+<][-]" # Check for Y if it's not 0 then set it to 1 and then move to X
+                        ">[-<+>]" # Check for Y if it's not 0 then set it to 1 and then move to X
+                        )
+                self.sp -= 1
+
+            case "eq":
+                # [ ..., Y, X ] Y == X
+                if self.sp < 2:
+                    raise IndexError("Not enough elements for `eq`")
+                self.result.append(
+                        "[-]<" # move to X 
+                        "[-<->]<" # subtract Y from X, X destroyed here
+                        "[[-]>+<]+" # If Y - X != 0 then set X=1. After that always set Y=1
+                        ">[-<->]" # At this point X is either 1 or 0 but Y is always 1 thus Y-X will be the self.result
+                        )
+                self.sp -= 1
+
+            case "gt":
+                # NOTE(bagasjs): This is has undefined behaviour on "X Y gt" whether X or Y or both is 0
+                # [ ..., Y, X, Z, W, A ] Y > X
+                # [ ..., 21, 19, 0, 0, 1 ]
+                if self.sp < 2:
+                    raise IndexError("Not enough elements for `gt`")
+                self.result.append(
+                        "[-]>[-]>+<<<" # Clear Z and W and set A to 1 then move to X. This part ends in X
+                        "[->+<]<[->+<]>" # Move X to Z and Move Y to X. We end in X
+                        # If X > 0 decrease X then decrease Z.
+                        # Looping move until 0 (which is always W) then move back to X
+                        "[->-[>]<<]>>>[-<]<<" # Now we have if X > 0 then GT if Z > 0 then LT. Also we always in X
+                        "[-<+>]" # We need to normalize the number if Y > 0 then set Y into 1
+                        "<[[-]>+<][-]>[-<+>]"
+                        )
+                self.sp -= 1
+
+            case "lt":
+                # NOTE(bagasjs): This is has undefined behaviour on "X Y gt" whether X or Y or both is 0
+                if self.sp < 2:
+                    raise IndexError("Not enough elements for `lt`")
+                # [ ..., Y, X, Z, W, A ] Y > X
+                # [ ..., 21, 19, 0, 0, 1 ]
+                if self.sp < 2:
+                    raise IndexError("Not enough elements for `gt`")
+                self.result.append(
+                        "[-]>[-]>+<<<" # Clear Z and W then move to X
+                        "[->+<]<[->+<]>" # Move X to Z and Move Y to X
+                        "[->-[>]<<]>>>[-<]<" # Now we have if X > 0 then GT if Z > 0 then LT. Also we always in X
+                        "[-<<+>>]<[-]" # We need to normalize the number if Y > 0 then set Y into 1
+                        "<[[-]>+<][-]>[-<+>]"
+                        )
+                self.sp -= 1
+
+
+            case "or":
+                # TODO: This wont work for `0 0 or`
+                # [ ..., Y, X ] => Y OR X
+                if self.sp < 2:
+                    raise IndexError("Not enough elements for `and`")
+                self.result.append(
+                        "[-]<" # Move to X,
+                        "[-<+>]<" # Add X to Y
+                        "[[-]>+<]>" # Set Y to 0 and X to 1 if Y > 0 
+                        "[-<+>]"
+                        )
+                self.sp -= 1
+
+            case "and":
+                # [ ..., Y, X, Z ] => Y AND X
+                if self.sp < 2:
+                    raise IndexError("Not enough elements for `and`")
+                self.result.append(
+                        "[-]<<" # Move to X
+                        "[[-]>[[-]>+<]<]" # If X != 0 set X to 0 if Y != 0 set Y to 0 and set Z = 1
+                        ">>[-<<+>>]<" # Move the value of Z to Y
+                        )
+                self.sp -= 1
+
+    def emit_while(self, while_: Inst):
+        assert isinstance(while_, While)
+        self.result.append(";; Preamble condition")
+        for inst in while_.cond:
+            self.emit_once(inst)
+        self.result.append(";; Start of the loop")
+        self.result.append("<[")
+        self.result.append(";; Loop Body")
+        for inst in while_.body:
+            self.emit_once(inst)
+        self.result.append(";; Loop Condition Checking")
+        for inst in while_.cond:
+            self.emit_once(inst)
+        self.result.append("<]")
+
+    def emit_once(self, inst: Inst):
+        if isinstance(inst, Integer):
+            self.result.append("[-]" + "+" * inst.value+ f"> ")
+            self.sp += 1
+        elif isinstance(inst, Intrinsic):
+            self.emit_intrinsic(inst)
+        elif isinstance(inst, While):
+            self.emit_while(inst)
+        elif isinstance(inst, Branch):
+            pass
+
+    def emit_brainfuck(self):
+        for inst in self.program.body:
+            self.emit_once(inst)
+
+        return "\n".join(self.result)
 
 def compile_to_brainfuck(source: str, debug_sym: bool = False) -> str:
     tokens = parse_tokens(source)
     parser = Parser(tokens)
     parser.parse()
     codegen = Codegen(parser.program)
-    print(parser.program)
-    return codegen.generate_brainfuck()
+    return codegen.emit_brainfuck()
 
-if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        print("USAGE: bfcat <source.bfcat> [output.bfcat]")
-        exit(-1)
-    with open(sys.argv[1], "r") as ifile:
-        outputfile = "a.bf"
-        if len(sys.argv) == 3:
-            outputfile = sys.argv[2]
+def compile_file(input_file, output_file):
+    with open(input_file, "r") as ifile:
         source = ifile.read()
         result = compile_to_brainfuck(source, debug_sym=True)
-        # with open(outputfile, "w") as ofile:
-        #     source = ifile.read()
-        #     ofile.write(compile_to_brainfuck(
-        #         source,
-        #         debug_sym=True,
-        #         ))
+        with open(output_file, "w") as ofile:
+            ofile.write(result)
+
+if __name__ == "__main__":
+    if len(sys.argv) < 3:
+        print("USAGE: bfcat <run|com> <source.bfcat> [output.bfcat]")
+        exit(-1)
+
+    outputfile = "a.bf"
+    if len(sys.argv) == 4:
+        outputfile = sys.argv[3]
+    if sys.argv[1] == "com":
+        compile_file(sys.argv[2], outputfile)
+    elif sys.argv[1] == "run":
+        import subprocess
+        compile_file(sys.argv[2], outputfile)
+        subprocess.run(["./build/bfpp.exe", outputfile])

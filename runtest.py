@@ -35,14 +35,17 @@ def main():
         "09_test_lt.bfc",
         "10_test_and.bfc",
         "11_test_or.bfc",
+        "12_test_while.bfc",
     ]
 
-    with open(os.path.join(tests_dir, "expected.json"), "r") as file:
+    with open(os.path.join(tests_dir, "test-expectation.json"), "r") as file:
         expected = json.loads(file.read())
 
     for test_file in test_files:
         output_path = os.path.join(build_dir, os.path.splitext(test_file)[0]) + ".bf"
-        cmd(["python", os.path.join("tools", "bfcat.py"), os.path.join(tests_dir, test_file), output_path])
+        # bfcat = os.path.join("tools", "bfcat.py")
+        bfcat = "bfcat2.py"
+        cmd(["python", bfcat, "com", os.path.join(tests_dir, test_file), output_path], show_stdout=True)
         res = subprocess.run([os.path.join(build_dir, "bfpp.exe"), output_path], stdout=subprocess.PIPE)
         stdout = res.stdout.decode().strip()
         act_lines = stdout.splitlines()
