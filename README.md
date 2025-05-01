@@ -44,3 +44,18 @@ which's set to the native functions slot 5.
 | !              | Native function call based on provided call table |
 | ?              | Dump the value of byte at data pointer (debugging)|
 | $              | Reset data to zeros and dp to zero                |
+
+## BFCAT
+BFCAT is a high level, stack based, concatenative programming language on top of Brainfuck 
+(specifically BFPP). It's written in Python and have 2 implementation which is 
+- **./bfcat2.py**
+bfcat2.py is the full featured compiler that has while and if conditions. It passes all the
+tests that is assigned in **demos/NN_test_XXXX.bfc** (you can try running by `python ./runtest.py`).
+bfcat2.py have a bit of hacks to support **lt** and **gt** operation. These hacks cause you 
+could not do this `X Y gt` or `X Y lt` where X, Y or both of them has the value of 255. 
+Other than that it would be working as you wish.
+- **./tools/bfcat.py**
+./tools/bfcat.py is the first implementation that I made it has no control flow. The source
+code is also simpler which is great if you want to know how I implement the core operations
+like add, subtract, equal, less than, greater than, etc. for brainfuck with bfcat compiler.
+This won't pass all the tests
