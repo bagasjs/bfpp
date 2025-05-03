@@ -1,0 +1,22 @@
+array nums 225 end
+
+0
+while dup 225 lt do
+    ;; index 
+    dup 
+    ;; value
+    dup 1 + 
+    ;; array
+    nums 
+    array_set
+    1 add
+end
+pop
+
+0
+while dup 225 lt do
+    dup nums array_get
+    dbgprint
+    1 add
+end
+pop

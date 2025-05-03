@@ -25,6 +25,7 @@ def error(message: str):
 TOK_INVALID = iota(True)
 TOK_SYMBOL = iota()
 TOK_INT  = iota()
+TOK_POP  = iota()
 TOK_DUP  = iota()
 TOP_OVER = iota()
 TOK_SWAP = iota()
@@ -42,12 +43,16 @@ TOK_IF    = iota()
 TOK_ELSE  = iota()
 TOK_DO    = iota()
 TOK_END   = iota()
-TOK_DBGPRINT = iota()
-
+TOK_ARRAY_GET = iota()
+TOK_ARRAY_SET = iota()
 TOK_DEF   = iota()
+TOK_ARRAY = iota()
+
+TOK_DBGPRINT = iota()
 
 keyword_map = {
     "dup": TOK_DUP,
+    "pop": TOK_POP,
     "over": TOP_OVER,
     "swap": TOK_SWAP,
     "add": TOK_ADD,
@@ -64,9 +69,14 @@ keyword_map = {
     "do": TOK_DO,
     "end": TOK_END,
     "print": TOK_PRINT,
-    "dbgprint": TOK_DBGPRINT,
 
     "def": TOK_DEF,
+    "array": TOK_ARRAY,
+    "array_get": TOK_ARRAY_GET,
+    "array_set": TOK_ARRAY_SET,
+
+    "dbgprint": TOK_DBGPRINT,
+
 }
 
 class Token(object):
@@ -94,6 +104,9 @@ def is_name(word: str):
 def parse_tokens(source: str) -> List[Token]:
     result = []
     for line_number, line in enumerate(source.splitlines()):
+        if line.startswith(";"):
+            continue
+
         for word in line.split():
             if word in keyword_map:
                 result.append(Token(kind=keyword_map[word], text=word, line_number=line_number + 1))
@@ -153,16 +166,17 @@ class Branch(Inst):
         return f"Branch(cond={self.cond}, if={self.if_body}, else={self.else_body})"
 
 class Program(object):
-    def __init__(self, body: List[Inst], macros: Dict[str, List[Inst]]):
+    def __init__(self, body: List[Inst], macros: Dict[str, List[Inst]], arrays: Dict[str, int]):
         self.body   = body
         self.macros = macros
+        self.arrays = arrays
 
     def __repr__(self):
         return f"Program(body={self.body}, macros={self.macros})"
 
 class Parser(object):
     def __init__(self, tokens: List[Token]):
-        self.program = Program([], {})
+        self.program = Program([], {}, {})
         self.blocks = [self.program.body]
         self.tokens = tokens
         self.i = 0
@@ -172,6 +186,8 @@ class Parser(object):
             self.parse_while()
         elif self.tokens[self.i].kind == TOK_DEF:
             self.parse_macro()
+        elif self.tokens[self.i].kind == TOK_ARRAY:
+            self.parse_array()
         elif self.tokens[self.i].kind == TOK_SYMBOL:
             name = self.tokens[self.i]
             if name.text not in self.program.macros:
@@ -189,6 +205,24 @@ class Parser(object):
             self.i += 1
         else:
             error(f"invalid token '{self.tokens[self.i].text}' at line {self.tokens[self.i].line_number}")
+
+    def parse_array(self):
+        array_tok = self.tokens[self.i]
+        self.i += 1
+        name = self.tokens[self.i]
+        if name.kind != TOK_SYMBOL:
+            error(f"To define an array it must have the following pattern \"array <array-name> <array-size> end\"\n" +
+                  f"At line {array_tok.line_number} expecting <array-name> to be a symbol token but found {name.kind} {name.text}")
+        self.i += 1
+        size = self.tokens[self.i]
+        if size.kind != TOK_INT:
+            error(f"To define an array it must have the following pattern \"array <array-name> <array-size> end\"\n" +
+                  f"At line {array_tok.line_number} expecting <array-size> to be an integer token but found {size.kind} {size.text}")
+        self.i += 1
+        if self.tokens[self.i].kind != TOK_END:
+            error(f"To define an array it must have the following pattern \"array <array-name> <array-size> end\"\n" +
+                  f"At line {array_tok.line_number} expecting token end but found {size.kind} {size.text}")
+        self.i += 1
 
     def parse_macro(self):
         # TODO(bagasjs): Make sure we can't add a while or if else block in macro
@@ -286,23 +320,29 @@ class Codegen(object):
     def __init__(self, program: Program):
         self.program = program
         self.result = []
-        self.sp = 0
+        self.dp = 0
 
     def emit_intrinsic(self, inst: Inst):
         assert isinstance(inst, Intrinsic)
         match inst.kind:
+            case "pop":
+                if self.dp < 1:
+                    raise IndexError("Not enough elements for `pop`")
+                self.result.append("[-]<")
+                self.dp -= 1
+
             case "dup":
-                if self.sp < 1:
+                if self.dp < 1:
                     raise IndexError("Not enough elements for `dup`")
                 self.result.append(
                         "[-]<" # Set Y to 0 then move to X
                         "[->+>+<<]" # Copy X to Y and Z
                         ">>[-<<+>>]" # Move Z to X
                         )
-                self.sp += 1
+                self.dp += 1
 
             case "over":
-                if self.sp < 2:
+                if self.dp < 2:
                     raise IndexError("Not enough elements for `over`")
                 # [ ... X, FOO, Y, Z ]
                 self.result.append(
@@ -310,11 +350,11 @@ class Codegen(object):
                         "[->>+>+<<<]" # Copy X to Y and Z
                         ">>>[-<<<+>>>]" # Move Z to X
                         )
-                self.sp += 1
+                self.dp += 1
 
             case "swap":
                 # [ ... X, Y ] -> [ ... Y, X ]
-                if self.sp < 2:
+                if self.dp < 2:
                     raise IndexError("Not enough elements for `swap`")
                 self.result.append(
                         "<[->+<]"
@@ -322,28 +362,24 @@ class Codegen(object):
                         ">>[-<<+>>]")
 
             case "add":
-                if self.sp < 2:
+                if self.dp < 2:
                     raise IndexError("Not enough elements for `add`")
                 self.result.append("<[-<+>]")
-                self.sp -= 1
+                self.dp -= 1
 
             case "sub":
-                if self.sp < 2:
+                if self.dp < 2:
                     raise IndexError("Not enough elements for `sub`")
                 self.result.append("<[-<->]")
-                self.sp -= 1
-
-            case "dbgprint":
-                self.result.append("<? ; dbgprint")
-                self.sp -= 1
+                self.dp -= 1
 
             case "print":
                 self.result.append("<. ; print")
-                self.sp -= 1
+                self.dp -= 1
 
             case "neq":
                 # [ ..., Y, X ] = Y != X
-                if self.sp < 2:
+                if self.dp < 2:
                     raise IndexError("Not enough elements for `neq`")
                 self.result.append(
                         "[-]<" # move to X 
@@ -351,11 +387,11 @@ class Codegen(object):
                         "[[-]>+<][-]" # Check for Y if it's not 0 then set it to 1 and then move to X
                         ">[-<+>]" # Check for Y if it's not 0 then set it to 1 and then move to X
                         )
-                self.sp -= 1
+                self.dp -= 1
 
             case "eq":
                 # [ ..., Y, X ] Y == X
-                if self.sp < 2:
+                if self.dp < 2:
                     raise IndexError("Not enough elements for `eq`")
                 self.result.append(
                         "[-]<" # move to X 
@@ -363,7 +399,7 @@ class Codegen(object):
                         "[[-]>+<]+" # If Y - X != 0 then set X=1. After that always set Y=1
                         ">[-<->]" # At this point X is either 1 or 0 but Y is always 1 thus Y-X will be the self.result
                         )
-                self.sp -= 1
+                self.dp -= 1
 
             case "gt":
                 # NOTE(bagasjs): Y and X must not be 255. This is due to QUICK HACK
@@ -372,7 +408,7 @@ class Codegen(object):
                 # TODO(bagasjs): Find a way to not depends on the QUICK HACK
                 # [ ..., Y, X, Z, W, A ] Y > X
                 # [ ..., 21, 19, 0, 0, 1 ]
-                if self.sp < 2:
+                if self.dp < 2:
                     raise IndexError("Not enough elements for `gt`")
                 self.result.append(
                         "[-]>[-]>+<<<" # Clear Z and W and set A to 1 then move to X. This part ends in X
@@ -384,18 +420,18 @@ class Codegen(object):
                         "[-<+>]" # We need to normalize the number if Y > 0 then set Y into 1
                         "<[[-]>+<][-]>[-<+>]"
                         )
-                self.sp -= 1
+                self.dp -= 1
 
             case "lt":
                 # NOTE(bagasjs): Y and X must not be 255. This is due to QUICK HACK
                 #                If we disable QUICK HACK it will resulting on
                 #                Weird behaviour if X or Y or both of them is 0
                 # TODO(bagasjs): Find a way to not depends on the QUICK HACK
-                if self.sp < 2:
+                if self.dp < 2:
                     raise IndexError("Not enough elements for `lt`")
                 # [ ..., Y, X, Z, W, A ] Y > X
                 # [ ..., 21, 19, 0, 0, 1 ]
-                if self.sp < 2:
+                if self.dp < 2:
                     raise IndexError("Not enough elements for `gt`")
                 self.result.append(
                         "[-]>[-]>+<<<" # Clear Z and W then move to X
@@ -405,13 +441,13 @@ class Codegen(object):
                         "[-<<+>>]<[-]" # We need to normalize the number if Y > 0 then set Y into 1
                         "<[[-]>+<][-]>[-<+>]"
                         )
-                self.sp -= 1
+                self.dp -= 1
 
 
             case "or":
                 # TODO: This wont work for `0 0 or`
                 # [ ..., Y, X ] => Y OR X
-                if self.sp < 2:
+                if self.dp < 2:
                     raise IndexError("Not enough elements for `and`")
                 self.result.append(
                         "[-]<" # Move to X,
@@ -419,28 +455,34 @@ class Codegen(object):
                         "[[-]>+<]>" # Set Y to 0 and X to 1 if Y > 0 
                         "[-<+>]"
                         )
-                self.sp -= 1
+                self.dp -= 1
 
             case "and":
                 # [ ..., Y, X, Z ] => Y AND X
-                if self.sp < 2:
+                if self.dp < 2:
                     raise IndexError("Not enough elements for `and`")
                 self.result.append(
                         "[-]<<" # Move to X
                         "[[-]>[[-]>+<]<]" # If X != 0 set X to 0 if Y != 0 set Y to 0 and set Z = 1
                         ">>[-<<+>>]<" # Move the value of Z to Y
                         )
-                self.sp -= 1
+                self.dp -= 1
+
+            # Helper intrinsic
+            case "dbgprint":
+                self.result.append("<? ; dbgprint")
+                self.dp -= 1
+
 
     def emit_while(self, while_: Inst):
         assert isinstance(while_, While)
-        start_sp = self.sp;
+        start_sp = self.dp;
         self.result.append(";; Preamble condition")
         for inst in while_.cond:
             self.emit_once(inst)
         self.result.append(";; Start of the loop")
         self.result.append("<[")
-        self.sp -= 1
+        self.dp -= 1
         self.result.append(";; Loop Body")
         for inst in while_.body:
             self.emit_once(inst)
@@ -448,13 +490,13 @@ class Codegen(object):
         for inst in while_.cond:
             self.emit_once(inst)
         self.result.append("<]")
-        self.sp -= 1
-        if self.sp != start_sp:
-            error(f"While loop at line {while_.line_number} starts with SP={start_sp} but ends with SP={self.sp}")
+        self.dp -= 1
+        if self.dp != start_sp:
+            error(f"While loop at line {while_.line_number} starts with SP={start_sp} but ends with SP={self.dp}")
 
     def emit_branch(self, branch: Inst):
         assert isinstance(branch, Branch)
-        start_sp = self.sp
+        start_sp = self.dp
         self.result.append(";; Check for condition")
         for inst in branch.cond:
             self.emit_once(inst)
@@ -471,16 +513,17 @@ class Codegen(object):
             for inst in branch.else_body:
                 self.emit_once(inst)
             self.result.append("<]<") # End of else
+        else:
+            self.dp -= 1
         self.result.append(";; ENDIF")
-        # TODO(bagasjs): we need to implement this for safety measure
-        # if self.sp != start_sp:
-        #     error(f"If statement at line {branch.line_number} starts with SP={start_sp} but ends with SP={self.sp}")
+        if self.dp != start_sp:
+            error(f"If statement at line {branch.line_number} starts with SP={start_sp} but ends with SP={self.dp}")
 
 
     def emit_once(self, inst: Inst):
         if isinstance(inst, Integer):
             self.result.append("[-]" + "+" * inst.value+ f"> ")
-            self.sp += 1
+            self.dp += 1
         elif isinstance(inst, Intrinsic):
             self.emit_intrinsic(inst)
         elif isinstance(inst, While):
