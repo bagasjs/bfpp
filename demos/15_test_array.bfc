@@ -5,18 +5,17 @@ while dup 225 lt do
     ;; index 
     dup 
     ;; value
-    dup 1 + 
+    dup 1 add
     ;; array
-    nums 
-    array_set
+    !nums 
     1 add
 end
 pop
 
 0
 while dup 225 lt do
-    dup nums array_get
-    dbgprint
+    dup ?nums 
     1 add
+    dbgprint
 end
 pop

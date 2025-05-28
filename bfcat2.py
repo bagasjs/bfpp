@@ -6,6 +6,7 @@
 # look at bfcat.py not bfcat2.py
 #
 
+from __future__ import annotations
 import sys
 from typing import List, Dict
 
@@ -47,6 +48,7 @@ TOK_ARRAY_GET = iota()
 TOK_ARRAY_SET = iota()
 TOK_DEF   = iota()
 TOK_ARRAY = iota()
+TOK_LOAD = iota()
 
 TOK_DBGPRINT = iota()
 
@@ -104,7 +106,7 @@ def is_name(word: str):
 def parse_tokens(source: str) -> List[Token]:
     result = []
     for line_number, line in enumerate(source.splitlines()):
-        if line.startswith(";"):
+        if line.strip().startswith(";"):
             continue
 
         for word in line.split():
@@ -112,6 +114,10 @@ def parse_tokens(source: str) -> List[Token]:
                 result.append(Token(kind=keyword_map[word], text=word, line_number=line_number + 1))
             elif is_name(word):
                 result.append(Token(kind=TOK_SYMBOL, text=word, line_number=line_number + 1))
+            elif word[0] == "?" and is_name(word[1:]):
+                result.append(Token(kind=TOK_ARRAY_GET, text=word[1:], line_number=line_number + 1))
+            elif word[0] == "!" and is_name(word[1:]):
+                result.append(Token(kind=TOK_ARRAY_SET, text=word[1:], line_number=line_number + 1))
             elif word.isdigit():
                 result.append(Token(kind=TOK_INT, text=word, line_number=line_number + 1))
             else:
@@ -136,6 +142,11 @@ class Intrinsic(Inst):
 
     def __repr__(self):
         return self.kind
+
+class ArrayOp(Inst):
+    def __init__(self, name: str, is_get: bool):
+        self.name = name
+        self.is_get = is_get
 
 class While(Inst):
     cond: List[Inst]
@@ -165,14 +176,23 @@ class Branch(Inst):
     def __repr__(self):
         return f"Branch(cond={self.cond}, if={self.if_body}, else={self.else_body})"
 
+class ArraySpec(object):
+    def __init__(self, size: int, offset: int):
+        self.size = size
+        self.offset = offset
+
+    def __repr__(self):
+        return f"ArraySpec(size={self.size}, offset={self.offset})"
+
 class Program(object):
-    def __init__(self, body: List[Inst], macros: Dict[str, List[Inst]], arrays: Dict[str, int]):
+    def __init__(self, body: List[Inst], macros: Dict[str, List[Inst]], arrays: Dict[str, ArraySpec]):
         self.body   = body
         self.macros = macros
         self.arrays = arrays
+        self.offset = 0
 
     def __repr__(self):
-        return f"Program(body={self.body}, macros={self.macros})"
+        return f"Program(body={self.body}, macros={self.macros}, offset={self.offset})"
 
 class Parser(object):
     def __init__(self, tokens: List[Token]):
@@ -203,6 +223,12 @@ class Parser(object):
         elif self.tokens[self.i].text in keyword_map:
             self.blocks[-1].append(Intrinsic(self.tokens[self.i].text))
             self.i += 1
+        elif self.tokens[self.i].kind == TOK_ARRAY_GET:
+            self.blocks[-1].append(ArrayOp(self.tokens[self.i].text, True))
+            self.i += 1
+        elif self.tokens[self.i].kind == TOK_ARRAY_SET:
+            self.blocks[-1].append(ArrayOp(self.tokens[self.i].text, False))
+            self.i += 1
         else:
             error(f"invalid token '{self.tokens[self.i].text}' at line {self.tokens[self.i].line_number}")
 
@@ -222,6 +248,9 @@ class Parser(object):
         if self.tokens[self.i].kind != TOK_END:
             error(f"To define an array it must have the following pattern \"array <array-name> <array-size> end\"\n" +
                   f"At line {array_tok.line_number} expecting token end but found {size.kind} {size.text}")
+        array = ArraySpec(int(size.text), self.program.offset)
+        self.program.offset += array.size
+        self.program.arrays[name.text] = array
         self.i += 1
 
     def parse_macro(self):
@@ -363,7 +392,7 @@ class Codegen(object):
 
             case "add":
                 if self.dp < 2:
-                    raise IndexError("Not enough elements for `add`")
+                    raise IndexError(f"Not enough elements for `add` expecting 2 but {self.dp} found")
                 self.result.append("<[-<+>]")
                 self.dp -= 1
 
@@ -519,6 +548,13 @@ class Codegen(object):
         if self.dp != start_sp:
             error(f"If statement at line {branch.line_number} starts with SP={start_sp} but ends with SP={self.dp}")
 
+    def emit_array_op(self, inst: ArrayOp):
+        if inst.is_get:
+            print(f"Getting {inst.name}")
+        else:
+            # Set consume 2 DP which is [ ... index, value ] 
+            print(f"Setting {inst.name}")
+            self.dp -= 2
 
     def emit_once(self, inst: Inst):
         if isinstance(inst, Integer):
@@ -528,10 +564,16 @@ class Codegen(object):
             self.emit_intrinsic(inst)
         elif isinstance(inst, While):
             self.emit_while(inst)
+        elif isinstance(inst, ArrayOp):
+            self.emit_array_op(inst)
         elif isinstance(inst, Branch):
             self.emit_branch(inst)
 
-    def emit_brainfuck(self):
+    def emit_all(self):
+        if self.program.offset > 0:
+            print("Program offset: ", self.program.offset)
+            self.result.append(";; Aggregate Array Offset")
+            self.result.append(">" * self.program.offset + "\n")
         for inst in self.program.body:
             self.emit_once(inst)
         return "\n".join(self.result)
@@ -541,7 +583,7 @@ def compile_to_brainfuck(source: str, debug_sym: bool = False) -> str:
     parser = Parser(tokens)
     parser.parse()
     codegen = Codegen(parser.program)
-    return codegen.emit_brainfuck()
+    return codegen.emit_all()
 
 def compile_file(input_file, output_file):
     with open(input_file, "r") as ifile:
