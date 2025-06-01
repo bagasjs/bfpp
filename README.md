@@ -1,6 +1,14 @@
 # BFPP (Brainf*ck++)
 A modified and extended brainf*ck interpreter
 
+## Usage
+```console
+$ make
+$ build/bfpp <brainfuck-source>
+$ python ./bfcat2.py com <bfcat-source>
+$ python ./bfcat2.py run <bfcat-source>
+```
+
 ## Status
 Discontinued
 My plan was to have a high level programming language on top of BFPP which is BFCAT. 
