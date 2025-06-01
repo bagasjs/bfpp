@@ -549,11 +549,18 @@ class Codegen(object):
             error(f"If statement at line {branch.line_number} starts with SP={start_sp} but ends with SP={self.dp}")
 
     def emit_array_op(self, inst: ArrayOp):
+        array = self.program.arrays[inst.name]
         if inst.is_get:
-            print(f"Getting {inst.name}")
+            # Get Consume 1 DP which is [ ..., index ]
+            print(f"Getting {inst.name} {array}")
+            self.result.append(";; array_get")
+            goto_array_start = "<" * self.dp + ">" * array.offset 
+            from_start_to_curr = 
+            self.result.append()
         else:
             # Set consume 2 DP which is [ ... index, value ] 
-            print(f"Setting {inst.name}")
+            print(f"Setting {inst.name} {array}")
+            self.result.append(";; array_set")
             self.dp -= 2
 
     def emit_once(self, inst: Inst):

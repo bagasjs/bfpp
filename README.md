@@ -1,6 +1,19 @@
 # BFPP (Brainf*ck++)
 A modified and extended brainf*ck interpreter
 
+## Status
+Discontinued
+My plan was to have a high level programming language on top of BFPP which is BFCAT. 
+The plan on BFCAT was a turing complete programming language that will works in a 
+normal (non-extended) Brainfuck interpreter. But when implementing the feature of 
+array it's looklike almost impossible (if not impossible) without having an extended
+feature on top of the brainfuck interpreter.
+
+My plan for this project was to show it off as a Game Of Life that works in the web but written in Brainfuck 
+and submit it into my local Programming community [Web Programming UNPAS](https://www.youtube.com/@sandhikagalihWPU).
+But due to the array obstacle. I discontinue this project for a while until I found motivation to continue it. 
+If you're interested look for it.
+
 ## Language Design
 Brainf\*ck is a simple programming language that consist of 8 instructions. BFPP add some 
 more instructions to make the language a bit easier to use and can interact with external
